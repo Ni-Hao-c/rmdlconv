@@ -10,6 +10,40 @@ import numpy as np
 import trimesh
 
 
+def parse_obj_index(token: str, vertex_count: int) -> int:
+    value_text = token.split("/", 1)[0]
+    if not value_text:
+        raise ValueError(f"OBJ face token has no vertex index: {token}")
+    value = int(value_text)
+    index = value - 1 if value > 0 else vertex_count + value
+    if index < 0 or index >= vertex_count:
+        raise ValueError(f"OBJ vertex index {value} is outside 1..{vertex_count}")
+    return index
+
+
+def load_obj_mesh(path: Path):
+    vertices = []
+    faces = []
+    for line_number, raw in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split()
+        if parts[0] == "v":
+            if len(parts) < 4:
+                raise ValueError(f"{path}:{line_number}: vertex line needs at least 3 values")
+            vertices.append([float(parts[1]), float(parts[2]), float(parts[3])])
+        elif parts[0] == "f":
+            if len(parts) < 4:
+                continue
+            indices = [parse_obj_index(token, len(vertices)) for token in parts[1:]]
+            for i in range(1, len(indices) - 1):
+                faces.append([indices[0], indices[i], indices[i + 1]])
+    if not vertices or not faces:
+        raise ValueError(f"OBJ has no triangle mesh: {path}")
+    return np.asarray(vertices, dtype=np.float64), np.asarray(faces, dtype=np.int32)
+
+
 def write_hulls_obj(out_path: Path, hulls):
     lines = []
     vertex_base = 1
@@ -31,11 +65,8 @@ def run_coacd_job(input_path: Path, output_path: Path, args):
             "output_obj": str(output_path),
         }
 
-    mesh = trimesh.load(input_path, force="mesh")
-    coacd_mesh = coacd.Mesh(
-        np.asarray(mesh.vertices, dtype=np.float64),
-        np.asarray(mesh.faces, dtype=np.int32),
-    )
+    vertices, faces = load_obj_mesh(input_path)
+    coacd_mesh = coacd.Mesh(vertices, faces)
 
     hulls = coacd.run_coacd(
         coacd_mesh,
@@ -66,8 +97,8 @@ def run_coacd_job(input_path: Path, output_path: Path, args):
         "resolution": args.resolution,
         "mcts_iterations": args.mcts_iterations,
         "max_ch_vertex": args.max_ch_vertex,
-        "input_vertices": int(len(mesh.vertices)),
-        "input_faces": int(len(mesh.faces)),
+        "input_vertices": int(len(vertices)),
+        "input_faces": int(len(faces)),
         "hull_count": int(len(hulls)),
         "hulls": [],
     }

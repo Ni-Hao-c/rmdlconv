@@ -72,6 +72,17 @@ def read_position(buf, off, flags):
     raise ValueError(f"mesh at 0x{off:x} has no position flag")
 
 
+def decode_indices(indices, vert_count):
+    if not indices:
+        return [], "empty"
+    if max(indices) < vert_count:
+        return indices, "local"
+    shifted = [index >> 6 for index in indices]
+    if shifted and max(shifted) < vert_count:
+        return shifted, "shift6"
+    return indices, "raw"
+
+
 def export_vg_obj(vg_path: Path, obj_path: Path, lod_level: int):
     buf = vg_path.read_bytes()
 
@@ -127,17 +138,22 @@ def export_vg_obj(vg_path: Path, obj_path: Path, lod_level: int):
             lines.append(f"v {pos[0]} {pos[1]} {pos[2]}")
 
         indices = [u16(buf, index_base + index_offset + i * 2) for i in range(index_count)]
+        decoded_indices, index_encoding = decode_indices(indices, vert_count)
         index_min = min(indices) if indices else None
         index_max = max(indices) if indices else None
-        uses_global_indices = index_max is not None and index_max >= vert_count
+        decoded_min = min(decoded_indices) if decoded_indices else None
+        decoded_max = max(decoded_indices) if decoded_indices else None
         tri_count = 0
+        skipped_tri_count = 0
 
         for i in range(0, index_count - 2, 3):
-            a, b, c = indices[i], indices[i + 1], indices[i + 2]
+            a, b, c = decoded_indices[i], decoded_indices[i + 1], decoded_indices[i + 2]
             if a == b or b == c or a == c:
                 continue
-            face_base = 1 if uses_global_indices else vertex_base
-            lines.append(f"f {face_base + a} {face_base + b} {face_base + c}")
+            if a >= vert_count or b >= vert_count or c >= vert_count:
+                skipped_tri_count += 1
+                continue
+            lines.append(f"f {vertex_base + a} {vertex_base + b} {vertex_base + c}")
             tri_count += 1
 
         stats["meshes"].append(
@@ -151,8 +167,11 @@ def export_vg_obj(vg_path: Path, obj_path: Path, lod_level: int):
                 "indexCount": index_count,
                 "indexMin": index_min,
                 "indexMax": index_max,
-                "usesGlobalIndices": uses_global_indices,
+                "decodedIndexMin": decoded_min,
+                "decodedIndexMax": decoded_max,
+                "indexEncoding": index_encoding,
                 "triCount": tri_count,
+                "skippedTriCount": skipped_tri_count,
             }
         )
         vertex_base += vert_count
