@@ -9,6 +9,9 @@
     <ClCompile Include="studio\common.cpp">
       <Filter>studio</Filter>
     </ClCompile>
+    <ClCompile Include="studio\collision\static_collision.cpp">
+      <Filter>studio\collision</Filter>
+    </ClCompile>
     <ClCompile Include="studio\studio.cpp">
       <Filter>studio</Filter>
     </ClCompile>
@@ -81,6 +84,9 @@
     <ClInclude Include="studio\common.h">
       <Filter>studio</Filter>
     </ClInclude>
+    <ClInclude Include="studio\collision\static_collision.h">
+      <Filter>studio\collision</Filter>
+    </ClInclude>
     <ClInclude Include="studio\optimize.h">
       <Filter>studio</Filter>
     </ClInclude>
@@ -127,6 +133,9 @@
     </Filter>
     <Filter Include="studio\model">
       <UniqueIdentifier>{c0e7d135-2ac5-4736-8c2b-5560a93f320c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="studio\collision">
+      <UniqueIdentifier>{c33cf1f9-a2bb-43a5-bd2a-c4a4b55237d4}</UniqueIdentifier>
     </Filter>
     <Filter Include="core\math">
       <UniqueIdentifier>{07acf1e8-b495-41b6-8c8c-4af694aace35}</UniqueIdentifier>
