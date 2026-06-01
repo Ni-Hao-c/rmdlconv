@@ -1,6 +1,8 @@
 import argparse
 import json
+import os
 import traceback
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import coacd
@@ -109,6 +111,22 @@ def read_jobs(path: Path):
     return jobs
 
 
+def run_indexed_job(job):
+    index, input_path, output_path, args = job
+    try:
+        row = run_coacd_job(input_path, output_path, args)
+    except Exception as exc:
+        row = {
+            "status": "error",
+            "input_obj": str(input_path),
+            "output_obj": str(output_path),
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+    row["index"] = index
+    return row
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--jobs", required=True)
@@ -118,30 +136,37 @@ def main():
     parser.add_argument("--resolution", type=int, default=3000)
     parser.add_argument("--mcts-iterations", type=int, default=200)
     parser.add_argument("--max-ch-vertex", type=int, default=96)
+    parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
 
     jobs = read_jobs(Path(args.jobs).resolve())
     report_path = Path(args.report).resolve()
     report_path.parent.mkdir(parents=True, exist_ok=True)
+    workers = args.workers if args.workers > 0 else (os.cpu_count() or 1)
+    workers = max(1, min(workers, len(jobs) if jobs else 1))
 
     with report_path.open("w", encoding="utf-8") as report:
-        for index, (input_path, output_path) in enumerate(jobs):
-            try:
-                row = run_coacd_job(input_path, output_path, args)
-            except Exception as exc:
-                row = {
-                    "status": "error",
-                    "input_obj": str(input_path),
-                    "output_obj": str(output_path),
-                    "error": str(exc),
-                    "traceback": traceback.format_exc(),
-                }
-            row["index"] = index
-            text = json.dumps(row, ensure_ascii=True)
-            print(text, flush=True)
-            report.write(text + "\n")
-            report.flush()
+        if workers == 1:
+            for job in ((index, input_path, output_path, args) for index, (input_path, output_path) in enumerate(jobs)):
+                row = run_indexed_job(job)
+                text = json.dumps(row, ensure_ascii=True)
+                print(text, flush=True)
+                report.write(text + "\n")
+                report.flush()
+        else:
+            indexed_jobs = [
+                (index, input_path, output_path, args)
+                for index, (input_path, output_path) in enumerate(jobs)
+            ]
+            with ProcessPoolExecutor(max_workers=workers) as executor:
+                futures = [executor.submit(run_indexed_job, job) for job in indexed_jobs]
+                for future in as_completed(futures):
+                    row = future.result()
+                    text = json.dumps(row, ensure_ascii=True)
+                    print(text, flush=True)
+                    report.write(text + "\n")
+                    report.flush()
 
 
 if __name__ == "__main__":

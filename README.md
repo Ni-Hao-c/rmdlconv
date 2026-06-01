@@ -52,6 +52,7 @@ python batch_static_collision_pipeline_cpp.py C:\models\containers C:\collision_
 ```
 
 The wrapper tries to find a Python environment that can import `coacd`, `numpy`, and `trimesh`. You can override this with `--python` or the `RMDLCONV_COACD_PYTHON` environment variable.
+`--threads` controls both the C++ patching stage and the number of CoACD worker processes used by the Python worker.
 
 Optional full form:
 

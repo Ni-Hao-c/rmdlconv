@@ -149,7 +149,8 @@ static int RunStaticCollisionPipeline(
 		<< " --max-hulls " << coacdMaxHulls
 		<< " --resolution " << coacdResolution
 		<< " --mcts-iterations " << coacdMctsIterations
-		<< " --max-ch-vertex " << coacdMaxChVertex;
+		<< " --max-ch-vertex " << coacdMaxChVertex
+		<< " --workers " << threads;
 	if (force)
 		command << " --force";
 

@@ -129,8 +129,6 @@ def collect_models(input_path: Path, text_filter: str | None, limit: int) -> lis
     models: list[Path] = []
     if input_path.is_dir():
         for p in input_path.rglob("*.mdl"):
-            if "_conv" in p.name.lower():
-                continue
             if text_filter and text_filter not in str(p).lower():
                 continue
             models.append(p)
